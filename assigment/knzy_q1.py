@@ -3,64 +3,90 @@ from scipy.stats import norm
 import numpy as np
 import matplotlib.pyplot as plt
 
+# In this question we have the robot's position as a stochastic scalar variable, a random x.
 
-#For this question we choose the proposal distribution q(x) to be a uniform distribution on the interval
-# [0 : 15]. You can generate samples from such a distribution using for instance Python’s random package.
+# Proposal distribution function is used to generate random positions/particles where the robot might
+# be placed. In order to generate random positions for the particles, we will use a uniform distriution
+# to generate initial random samples. Uniform Distribution gives values between 0 and 15 equal chances 
+# to be sampled.
 
-#You have to write a python program that produces a set of resampled robot poses x using the Sampling 
-#Importance-Resampling algorithm and the above stated pose distribution p(x) and proposal distribution 
-# q(x). Show the distribution of samples after the resampling step for k = 20, 100, 1000 samples /
-#particles. Plot a histogram of the samples together with the wanted pose distribution p(x) (Hint: Take
-#care the the histogram should be scaled as a probability density function to be comparable with p(x)).
-#How well does the histogram of samples fit with p(x) for the different choices of k? Can you imagine
-#any problems occurring when using a uniform proposal distribution with our particular choice of p(x)?
-
-def q_x(k):
+# Function q(x) will take the number of samples and return a random list q of particles/positions
+def q_x(k):  
     q = np.random.uniform(0, 15, k)
     return q
 
-#p(x) = 0.3 · N(x; 2.0, 1.0) + 0.4 · N(x; 5.0, 2.0) + 0.3 · N(x; 9.0, 1.0) 
-#a function to define the target distribution for 
+# Now while the previous proposal distribution function provides a guess to the robot's possible position,
+# we will use p(x) to compute the weight/likelihood that the robot is actually at this posision based on
+# the probability desnity function.
+
+# A function p(x) to define the target distribution where  
+# p(x) = 0.3 · N(x; 2.0, 1.0) + 0.4 · N(x; 5.0, 2.0) + 0.3 · N(x; 9.0, 1.0) 
+# that is, the robot's position is more likely near 2.0, 5.0, or 9.0 with different probabilities and standard
+# deviations.
 def p_x(x):
     pdf = (0.3 * norm.pdf(x, 2.0, 1.0) + 0.4 * norm.pdf(x, 5.0, 2.0) + 0.3 * norm.pdf(x, 9.0, 1.0))
     return pdf
 
+# why we need p(x) and q(x)? while p(x) might be more likely to generate samples that are close to the 
+# true distribution, it is very difficult to use p(x) to sample positions/particles, so we use q(x) to
+# generate samples and p(x) makes up for the fact that q(x) samples do not match the true distriution by
+# assigning these random samples appropriate weights.
+
+# We will use this function to normalize the weights of each probability by dividing each particle's weight 
+# over the sum of weights such that the values of weights array add up to 1. Resampling is done such that the
+# particles with higher weights are more likely to be picked multiple times. The random choice function does 
+# that by picking random indices from the list of particles based on their weights. Thus, particles with higher 
+# weights are more likely to have their indices picked more often. Then using the newly generated list of indices
+# we return the list of particles such that the particles with higher weighst appear more often in the list 
+# of particles.
 def resample(particles, weights):
-    #normalize the weights by dividing each particle's weight over the sum of weights
     weights = weights / sum(weights)
-    #resample the particles based on their weights
     indices = np.random.choice(len(particles), size=len(particles), p=weights)
     return particles[indices]
-    
+
+# Now putting all these functions together in the SIR, Sampling Importance-Resampling Algorithm, function. We will 
+# q(x) to generate random values for the samples/particles representing the robot's position, random x. then we
+# use the probability distribution function p(x) to determine the weights/importance of these random particles. then 
+# based on these weights, we will resample the particles to kow which ones are more likely to model the robot's position.
 def SIR(k):
-    #generate k random samples using q(x)
+    # proposal sampling
     particles = q_x(k)
-    #print(particles)
-    
-    #assign the weights using p(x)
+
+    # importance Sampling
     weights = p_x(particles)
     
-    #resample the particles based on their weight
+    # resampling
     resampled_particles = resample(particles, weights)
     
     return resampled_particles
 
-#function to plot the particles after being resampled and the expected/target distribution of p(x)
+# Function to plot the resampled particles and the expected/target distribution using p(x).
 def plot_histograms(k_values):
+    
+    # First off, we need to generate a range of x values for p(x) over the range from [0:15] as p(x) is a continuous 
+    # function so we need to evaluate it over a range of x values to compare it to the SIR algorithm. linspace function
+    # generates values between 0 and 15 such that it returns a range of 1000 values in the range [0:15].
     x_range = np.linspace(0, 15, 1000)
     
-    # Plot the target distribution p(x) for reference
     plt.figure(figsize=(10, 8))
     
     for i, k in enumerate(k_values):
+        # Get the resampled particles list from SIR
         resampled_particles = SIR(k)
         
-        # Plot the histogram of resampled particles
+        # This line is responsible for dividing our page into equal parts, and since we have 20, 100, and 1000, it will
+        # divide our screen into 3 parts for the 3 iterations/graphs.
         plt.subplot(len(k_values), 1, i+1)
+
+        # Plot the histogram of resampled particles        
         plt.hist(resampled_particles, bins=30, density=True, alpha=0.6, label=f'Resampled (k={k})')
         
-        # Overlay the target distribution p(x) for comparison
+        # Overlay the target distribution p(x) for comparison by sending the x_range list to p(x) and plotting it.
         plt.plot(x_range, p_x(x_range), label='Target distribution p(x)', color='red')
+        
+        # Adding labels and title
+        plt.xlabel('Robot Position (x)') 
+        plt.ylabel('Probability Density')  
         plt.title(f'Resampling with k={k}')
         plt.legend()
     
