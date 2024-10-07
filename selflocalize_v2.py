@@ -6,11 +6,9 @@ import time
 from timeit import default_timer as timer
 import sys
 
-
 # Flags
 showGUI = True  # Whether or not to open GUI windows
 onRobot = True  # Whether or not we are running on the Arlo robot
-
 
 def isRunningOnArlo():
     """Return True if we are running on Arlo, otherwise False.
@@ -18,11 +16,9 @@ def isRunningOnArlo():
     """
     return onRobot
 
-
 if isRunningOnArlo():
     # XXX: You need to change this path to point to where your robot.py file is located
     sys.path.append("../../../../Arlo/python")
-
 
 try:
     import robot
@@ -30,9 +26,6 @@ try:
 except ImportError:
     print("selflocalize.py: robot module not present - forcing not running on Arlo!")
     onRobot = False
-
-
-
 
 # Some color constants in BGR format
 CRED = (0, 0, 255)
@@ -52,10 +45,6 @@ landmarks = {
     2: (300.0, 0.0)  # Coordinates for landmark 2
 }
 landmark_colors = [CRED, CGREEN] # Colors used when drawing the landmarks
-
-
-
-
 
 def jet(x):
     """Colour map for drawing particles. This function determines the colour of 
@@ -107,8 +96,6 @@ def draw_world(est_pose, particles, world):
     cv2.circle(world, a, 5, CMAGENTA, 2)
     cv2.line(world, a, b, CMAGENTA, 2)
 
-
-
 def initialize_particles(num_particles):
     particles = []
     for i in range(num_particles):
@@ -118,6 +105,64 @@ def initialize_particles(num_particles):
 
     return particles
 
+# Compute particle weights
+def compute_particle_weight(particle, detected_id, measured_dist, measured_angle, landmarks, sigma_d, sigma_theta):
+    # Get the landmark's position
+    landmark_pos = landmarks[detected_id]
+    
+    # Compute the distance from the particle to the landmark
+    dx = landmark_pos[0] - particle.getX()
+    dy = landmark_pos[1] - particle.getY()
+    predicted_dist = np.sqrt(dx**2 + dy**2)
+    
+    # Compute the predicted angle to the landmark
+    predicted_angle = np.arctan2(dy, dx) - particle.getTheta()
+    
+    # Normalize the angle to the range [-pi, pi]
+    predicted_angle = np.arctan2(np.sin(predicted_angle), np.cos(predicted_angle))
+    
+    # Distance weight (Gaussian likelihood)
+    dist_weight = (1.0 / np.sqrt(2 * np.pi * sigma_d**2)) * np.exp(-0.5 * ((measured_dist - predicted_dist)**2 / sigma_d**2))
+    
+    # Orientation weight (Gaussian likelihood)
+    angle_weight = (1.0 / np.sqrt(2 * np.pi * sigma_theta**2)) * np.exp(-0.5 * ((measured_angle - predicted_angle)**2 / sigma_theta**2))
+    
+    # Total weight is the product of both likelihoods
+    return dist_weight * angle_weight
+
+
+def SIR_resample_particles(particles):
+    # Step 1: Normalize the weights
+    total_weight = sum([p.getWeight() for p in particles])
+    if total_weight == 0:
+        # If all weights are zero, set equal weights
+        for p in particles:
+            p.setWeight(1.0 / len(particles))
+        total_weight = 1.0
+    normalized_weights = [p.getWeight() / total_weight for p in particles]
+
+    # Step 2: Generate cumulative distribution of weights
+    cumulative_sum = np.cumsum(normalized_weights)
+
+    # Step 3: Resampling using the cumulative distribution
+    new_particles = []
+    for _ in range(len(particles)):
+        r = np.random.uniform(0, 1)
+        index = np.searchsorted(cumulative_sum, r)
+        # Clone the selected particle and give it equal weight
+        new_particle = particle.Particle(
+            particles[index].getX(), 
+            particles[index].getY(), 
+            particles[index].getTheta(), 
+            1.0 / len(particles)  # Equal weight after resampling
+        )
+        new_particles.append(new_particle)
+
+    return new_particles
+
+# Define the standard deviations for distance and angle (you can tweak these)
+sigma_d = 10.0  # Distance noise (in cm)
+sigma_theta = 0.1  # Angle noise (in radians)
 
 # Main program #
 try:
@@ -130,7 +175,6 @@ try:
         WIN_World = "World view"
         cv2.namedWindow(WIN_World)
         cv2.moveWindow(WIN_World, 500, 50)
-
 
     # Initialize particles
     num_particles = 1000
@@ -159,76 +203,82 @@ try:
         cam = camera.Camera(0, robottype='macbookpro', useCaptureThread=False)
 
     while True:
-
-        # Move the robot according to user input (only for testing)
+        # Handle user input for control
         action = cv2.waitKey(10)
-        if action == ord('q'): # Quit
+        if action == ord('q'):  # Quit
             break
-    
+
         if not isRunningOnArlo():
-            if action == ord('w'): # Forward
+            if action == ord('w'):  # Forward
                 velocity += 4.0
-            elif action == ord('x'): # Backwards
+            elif action == ord('x'):  # Backwards
                 velocity -= 4.0
-            elif action == ord('s'): # Stop
+            elif action == ord('s'):  # Stop
                 velocity = 0.0
                 angular_velocity = 0.0
-            elif action == ord('a'): # Left
+            elif action == ord('a'):  # Left
                 angular_velocity += 0.2
-            elif action == ord('d'): # Right
+            elif action == ord('d'):  # Right
                 angular_velocity -= 0.2
-
-
-
-        
-        # Use motor controls to update particles
-        # XXX: Make the robot drive
-        # XXX: You do this
-
 
         # Fetch next frame
         colour = cam.get_next_frame()
-        
+
+        # Time step (dt)
+        dt = 0.1  # Adjust this based on your control loop timing
+
+        # Update each particle's state
+        for p in particles:
+            # Compute the change in x, y, and theta
+            delta_x = velocity * dt * np.cos(p.getTheta())
+            delta_y = velocity * dt * np.sin(p.getTheta())
+            delta_theta = angular_velocity * dt
+
+            # Move the particle
+            p.setX(p.getX() + delta_x)
+            p.setY(p.getY() + delta_y)
+            p.setTheta(p.getTheta() + delta_theta)
+
+            # Optionally, add uncertainty to the particle motion
+            p.setX(p.getX() + np.random.normal(0, 0.5))  # Motion noise sigma
+            p.setY(p.getY() + np.random.normal(0, 0.5))
+            p.setTheta(p.getTheta() + np.random.normal(0, 0.05))  # Motion noise theta sigma
+
         # Detect objects
         objectIDs, dists, angles = cam.detect_aruco_objects(colour)
-        if not isinstance(objectIDs, type(None)):
-            # List detected objects
+        if objectIDs is not None:
             for i in range(len(objectIDs)):
                 print("Object ID = ", objectIDs[i], ", Distance = ", dists[i], ", angle = ", angles[i])
-                # XXX: Do something for each detected object - remember, the same ID may appear several times
-                
-                # We should 
-                
-
-            # Compute particle weights ¬
-          
-            
-
-            # XXX: You do this
-
-            # Resampling
-            # XXX: You do this
-
-            # Draw detected objects
-            cam.draw_aruco_objects(colour)
-        else:
-            # No observation - reset weights to uniform distribution
+            # For each particle, compute the weight
             for p in particles:
-                p.setWeight(1.0/num_particles)
+                total_weight = 1.0
+                for i in range(len(objectIDs)):
+                    detected_id = objectIDs[i]
+                    measured_dist = dists[i]
+                    measured_angle = angles[i]
 
-    
-        est_pose = particle.estimate_pose(particles) # The estimate of the robots current pose
+                    weight = compute_particle_weight(p, detected_id, measured_dist, measured_angle, landmarks, sigma_d, sigma_theta)
+                    total_weight *= weight
+                p.setWeight(total_weight)
+
+            # Resample particles
+            particles = SIR_resample_particles(particles)
+        else:
+            # No observations; continue with current weights
+            pass
+
+        # Estimate pose
+        est_pose = particle.estimate_pose(particles)
 
         if showGUI:
             # Draw map
             draw_world(est_pose, particles, world)
-    
+
             # Show frame
             cv2.imshow(WIN_RF1, colour)
 
             # Show world
             cv2.imshow(WIN_World, world)
-    
   
 finally: 
     # Make sure to clean up even if an exception occurred
@@ -238,4 +288,3 @@ finally:
 
     # Clean-up capture thread
     cam.terminateCaptureThread()
-

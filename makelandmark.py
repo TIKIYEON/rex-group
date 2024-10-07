@@ -1,11 +1,16 @@
 import cv2  # Import the OpenCV library
 import numpy as np
-
-print(cv2.__version__)
+import argparse
 
 # TODO make this configurable from the command line using parser
+# Get user input for the marker ID using parser 
+parser = argparse.ArgumentParser(description='Generate a landmark image with a specified ArUco marker ID.')
+parser.add_argument('markerID', type=int, help='ArUco marker ID (0-249)')
+args = parser.parse_args()
+markerID = args.markerID
+
 # markerID = 10 # Try 1 - 4
-markerID = 1
+#markerID = 1
 
 # Define some relevant constants
 dpi = 72  # dots (pixels) per inch [inch^(-1)]
