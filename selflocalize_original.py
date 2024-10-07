@@ -196,8 +196,14 @@ try:
             for i in range(len(objectIDs)):
                 print("Object ID = ", objectIDs[i], ", Distance = ", dists[i], ", angle = ", angles[i])
                 # XXX: Do something for each detected object - remember, the same ID may appear several times
+                
+                # We should 
+                
 
-            # Compute particle weights
+            # Compute particle weights ¬
+          
+            
+
             # XXX: You do this
 
             # Resampling

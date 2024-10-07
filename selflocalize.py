@@ -6,7 +6,7 @@ import numpy as np
 import time
 from timeit import default_timer as timer
 import sys
-
+from scipy.stats import norm
 
 # Flags
 showGUI = True  # Whether or not to open GUI windows
@@ -22,7 +22,7 @@ def isRunningOnArlo():
 
 if isRunningOnArlo():
     # XXX: You need to change this path to point to where your robot.py file is located
-    sys.path.append("../../../../Arlo/python")
+    sys.path.append("./robot.py")
 
 
 try:
@@ -53,10 +53,6 @@ landmarks = {
     2: (300.0, 0.0)  # Coordinates for landmark 2
 }
 landmark_colors = [CRED, CGREEN] # Colors used when drawing the landmarks
-
-
-
-
 
 def jet(x):
     """Colour map for drawing particles. This function determines the colour of 
@@ -108,8 +104,6 @@ def draw_world(est_pose, particles, world):
     cv2.circle(world, a, 5, CMAGENTA, 2)
     cv2.line(world, a, b, CMAGENTA, 2)
 
-
-
 def initialize_particles(num_particles):
     particles = []
     for i in range(num_particles):
@@ -118,6 +112,14 @@ def initialize_particles(num_particles):
         particles.append(p)
 
     return particles
+
+# Resampling function ?? idk
+def resample_particles(particles):
+    weights = [p.getWeight() for p in particles]
+    indices = np.random.choice(len(particles), size=len(particles), p=weights)
+    resampled_particles = [particles[i] for i in indices]
+
+    return resampled_particles
 
 
 # Main program #
@@ -180,7 +182,9 @@ try:
 
     
         # Use motor controls to update particles
+
         # XXX: Make the robot drive
+    
         # XXX: You do this
 
         # Fetch next frame
@@ -189,6 +193,9 @@ try:
         # Detect objects
         objectIDs, dists, angles = cam.detect_aruco_objects(colour)
         if not isinstance(objectIDs, type(None)):
+            # Initialize sum of weights
+            sumWeight = 0.0
+            
             # List detected objects
             for i in range(len(objectIDs)):
                 print("Object ID = ", objectIDs[i], ", Distance = ", dists[i], ", angle = ", angles[i])
@@ -199,14 +206,22 @@ try:
             for p in particles:
                 sumWeight = sumWeight + p.getWeight()
         
-        
             # Resampling
             # XXX: You do this
+            distanceWeight = norm.pdf(particles,dists[i],2.0)
+            orientationWeight = norm.pdf(particles,angles[i],2.0)
+            
             weights = getWeights(particles) / sumWeights(particles)
             indices = np.random.choice(len(particles), size=len(particles), p=weights)
+            resampled_particles = particles[indices]
+            particles = resample_particles
+            for p in particles:
+                p.setX()
+                p.setY()
 
-            # Update particles
-            
+            # Update particles with the new weights
+                    
+            #particles = particles[indices] #??
 
             # Draw detected objects
             cam.draw_aruco_objects(colour)
@@ -214,10 +229,8 @@ try:
             # No observation - reset weights to uniform distribution
             for p in particles:
                 p.setWeight(1.0/num_particles)
+                # move_particle(p, 0.1, 0.1, 0.1) #  TODO move with actual values
 
-            for p in particles:
-                p.setWeight(1.0/num_particles)
-                move_particle(p, 0.1, 0.1, 0.1) #  TODO move with actual values
 
         est_pose = particle.estimate_pose(particles) # The estimate of the robots current pose
 

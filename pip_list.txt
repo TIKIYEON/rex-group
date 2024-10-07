@@ -1,0 +1,8 @@
+Package               Version
+--------------------- ---------
+numpy                 1.26.4
+opencv-contrib-python 3.4.17.61
+opencv-python         3.4.17.61
+pip                   24.2
+scipy                 1.14.1
+setuptools            75.1.0
