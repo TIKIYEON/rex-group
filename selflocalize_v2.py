@@ -130,9 +130,57 @@ def compute_particle_weight(particle, detected_id, measured_dist, measured_angle
     # Total weight is the product of both likelihoods
     return dist_weight * angle_weight
 
+# def compute_particle_weight(particle, detected_id, measured_dist, measured_angle, landmarks, sigma_d, sigma_theta):
+#     landmark_pos = landmarks[detected_id]
+#
+#     dx = landmark_pos[0] - particle.getX()
+#     dy = landmark_pos[1] - particle.getY()
+#     predicted_dist = np.sqrt(dx**2 + dy**2)
+#
+#     predicted_angle = np.arctan2(dy, dx) - particle.getTheta()
+#
+#     predicted_angle = np.arctan2(np.sin(predicted_angle), np.cos(predicted_angle))
+#
+#     dist_weight = (1.0 / np.sqrt(2 * np.pi * sigma_d**2)) * np.exp(-0.5 * ((measured_dist - predicted_dist)**2 / sigma_d**2))
+#
+#     angle_weight = (1.0 / np.sqrt(2 * np.pi * sigma_theta**2)) * np.exp(-0.5 * ((measured_angle - predicted_angle)**2 / sigma_theta**2))
+#
+#     reduced_angle_weight = angle_weight ** 0.5  # Lower the influence of angle weight (you can tweak this power)
+#
+#     return dist_weight * reduced_angle_weight
 
-def SIR_resample_particles(particles):
-    # Step 1: Normalize the weights
+
+# def SIR_resample_particles(particles):
+#     # Step 1: Normalize the weights
+#     total_weight = sum([p.getWeight() for p in particles])
+#     if total_weight == 0:
+#         # If all weights are zero, set equal weights
+#         for p in particles:
+#             p.setWeight(1.0 / len(particles))
+#         total_weight = 1.0
+#     normalized_weights = [p.getWeight() / total_weight for p in particles]
+#
+#     # Step 2: Generate cumulative distribution of weights
+#     cumulative_sum = np.cumsum(normalized_weights)
+#
+#     # Step 3: Resampling using the cumulative distribution
+#     new_particles = []
+#     for _ in range(len(particles)):
+#         r = np.random.uniform(0, 1)
+#         index = np.searchsorted(cumulative_sum, r)
+#         # Clone the selected particle and give it equal weight
+#         new_particle = particle.Particle(
+#             particles[index].getX(),
+#             particles[index].getY(),
+#             particles[index].getTheta(),
+#             1.0 / len(particles)  # Equal weight after resampling
+#         )
+#         new_particles.append(new_particle)
+#
+#     return new_particles
+
+
+def SIR_resample_particles(particles, jitter_std_x=0.5, jitter_std_y=0.5, jitter_std_theta=0.05):
     total_weight = sum([p.getWeight() for p in particles])
     if total_weight == 0:
         # If all weights are zero, set equal weights
@@ -141,19 +189,17 @@ def SIR_resample_particles(particles):
         total_weight = 1.0
     normalized_weights = [p.getWeight() / total_weight for p in particles]
 
-    # Step 2: Generate cumulative distribution of weights
     cumulative_sum = np.cumsum(normalized_weights)
 
-    # Step 3: Resampling using the cumulative distribution
     new_particles = []
     for _ in range(len(particles)):
         r = np.random.uniform(0, 1)
         index = np.searchsorted(cumulative_sum, r)
         # Clone the selected particle and give it equal weight
         new_particle = particle.Particle(
-            particles[index].getX(),
-            particles[index].getY(),
-            particles[index].getTheta(),
+            particles[index].getX() + np.random.normal(0, jitter_std_x),  # Add jitter to x
+            particles[index].getY() + np.random.normal(0, jitter_std_y),  # Add jitter to y
+            particles[index].getTheta() + np.random.normal(0, jitter_std_theta),  # Add jitter to theta
             1.0 / len(particles)  # Equal weight after resampling
         )
         new_particles.append(new_particle)
@@ -162,7 +208,7 @@ def SIR_resample_particles(particles):
 
 # Define the standard deviations for distance and angle (you can tweak these)
 sigma_d = 10
-sigma_theta = np.pi / 8
+sigma_theta = np.pi / 6
 
 # Main program #
 try:
@@ -249,6 +295,8 @@ try:
         if objectIDs is not None:
             for i in range(len(objectIDs)):
                 print("Object ID = ", objectIDs[i], ", Distance = ", dists[i], ", angle = ", angles[i])
+                # Check for ducplicate ID's
+
             # For each particle, compute the weight
             for p in particles:
                 total_weight = 1.0
@@ -262,7 +310,8 @@ try:
                 p.setWeight(total_weight)
 
             # Resample particles
-            particles = SIR_resample_particles(particles)
+            # particles = SIR_resample_particles(particles)
+            particles = SIR_resample_particles(particles, jitter_std_x=0.5, jitter_std_y=0.5, jitter_std_theta=0.05)
         else:
             # No observations; continue with current weights
             pass
