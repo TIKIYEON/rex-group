@@ -10,6 +10,12 @@ from pkg_resources import parse_version
 gstreamerCameraFound = False
 piCameraFound = False
 piCamera2Found = False
+
+# picamera and picamera2 are both used for controlling the Raspberry Pi camera system,
+# and offer different functionalities. picamera is built for the original Raspberry Pi.
+# it's meant for an older camera system which uses the legacy Multimedia Abstraction Layer API.
+# on the other hand, picamera2 is built for the newer libcamera API which is used in later releases
+# of Raspberry Pi.
 try:
     import picamera
     from picamera.array import PiRGBArray
@@ -25,6 +31,8 @@ try:
 except ImportError:
     print("Camera.py: picamera2 module not available")
 
+# ASSUMPTION :: if working on a device other than arlo, then we use the opencv library instead which 
+# uses its own cross-platform camera APIs to interact with cameras.
 if not piCameraFound and not piCamera2Found:
     print("Camera.py: Using OpenCV interface instead")
 
