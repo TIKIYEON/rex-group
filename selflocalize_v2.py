@@ -47,7 +47,7 @@ landmarks = {
 landmark_colors = [CRED, CGREEN] # Colors used when drawing the landmarks
 
 def jet(x):
-    """Colour map for drawing particles. This function determines the colour of 
+    """Colour map for drawing particles. This function determines the colour of
     a particle from its weight."""
     r = (x >= 3.0/8.0 and x < 5.0/8.0) * (4.0 * x - 3.0/2.0) + (x >= 5.0/8.0 and x < 7.0/8.0) + (x >= 7.0/8.0) * (-4.0 * x + 9.0/2.0)
     g = (x >= 1.0/8.0 and x < 3.0/8.0) * (4.0 * x - 1.0/2.0) + (x >= 3.0/8.0 and x < 5.0/8.0) + (x >= 5.0/8.0 and x < 7.0/8.0) * (-4.0 * x + 7.0/2.0)
@@ -79,7 +79,7 @@ def draw_world(est_pose, particles, world):
         y = ymax - (int(particle.getY() + offsetY))
         colour = jet(particle.getWeight() / max_weight)
         cv2.circle(world, (x,y), 2, colour, 2)
-        b = (int(particle.getX() + 15.0*np.cos(particle.getTheta()))+offsetX, 
+        b = (int(particle.getX() + 15.0*np.cos(particle.getTheta()))+offsetX,
                                      ymax - (int(particle.getY() + 15.0*np.sin(particle.getTheta()))+offsetY))
         cv2.line(world, (x,y), b, colour, 2)
 
@@ -91,7 +91,7 @@ def draw_world(est_pose, particles, world):
 
     # Draw estimated robot pose
     a = (int(est_pose.getX())+offsetX, ymax-(int(est_pose.getY())+offsetY))
-    b = (int(est_pose.getX() + 15.0*np.cos(est_pose.getTheta()))+offsetX, 
+    b = (int(est_pose.getX() + 15.0*np.cos(est_pose.getTheta()))+offsetX,
                                  ymax-(int(est_pose.getY() + 15.0*np.sin(est_pose.getTheta()))+offsetY))
     cv2.circle(world, a, 5, CMAGENTA, 2)
     cv2.line(world, a, b, CMAGENTA, 2)
@@ -99,7 +99,7 @@ def draw_world(est_pose, particles, world):
 def initialize_particles(num_particles):
     particles = []
     for i in range(num_particles):
-        # Random starting points. 
+        # Random starting points.
         p = particle.Particle(600.0*np.random.ranf() - 100.0, 600.0*np.random.ranf() - 250.0, np.mod(2.0*np.pi*np.random.ranf(), 2.0*np.pi), 1.0/num_particles)
         particles.append(p)
 
@@ -109,24 +109,24 @@ def initialize_particles(num_particles):
 def compute_particle_weight(particle, detected_id, measured_dist, measured_angle, landmarks, sigma_d, sigma_theta):
     # Get the landmark's position
     landmark_pos = landmarks[detected_id]
-    
+
     # Compute the distance from the particle to the landmark
     dx = landmark_pos[0] - particle.getX()
     dy = landmark_pos[1] - particle.getY()
     predicted_dist = np.sqrt(dx**2 + dy**2)
-    
+
     # Compute the predicted angle to the landmark
     predicted_angle = np.arctan2(dy, dx) - particle.getTheta()
-    
+
     # Normalize the angle to the range [-pi, pi]
     predicted_angle = np.arctan2(np.sin(predicted_angle), np.cos(predicted_angle))
-    
+
     # Distance weight (Gaussian likelihood)
     dist_weight = (1.0 / np.sqrt(2 * np.pi * sigma_d**2)) * np.exp(-0.5 * ((measured_dist - predicted_dist)**2 / sigma_d**2))
-    
+
     # Orientation weight (Gaussian likelihood)
     angle_weight = (1.0 / np.sqrt(2 * np.pi * sigma_theta**2)) * np.exp(-0.5 * ((measured_angle - predicted_angle)**2 / sigma_theta**2))
-    
+
     # Total weight is the product of both likelihoods
     return dist_weight * angle_weight
 
@@ -151,9 +151,9 @@ def SIR_resample_particles(particles):
         index = np.searchsorted(cumulative_sum, r)
         # Clone the selected particle and give it equal weight
         new_particle = particle.Particle(
-            particles[index].getX(), 
-            particles[index].getY(), 
-            particles[index].getTheta(), 
+            particles[index].getX(),
+            particles[index].getY(),
+            particles[index].getTheta(),
             1.0 / len(particles)  # Equal weight after resampling
         )
         new_particles.append(new_particle)
@@ -161,8 +161,8 @@ def SIR_resample_particles(particles):
     return new_particles
 
 # Define the standard deviations for distance and angle (you can tweak these)
-sigma_d = 10.0  # Distance noise (in cm)
-sigma_theta = 0.1  # Angle noise (in radians)
+sigma_d = 10
+sigma_theta = np.pi / 8
 
 # Main program #
 try:
@@ -279,10 +279,10 @@ try:
 
             # Show world
             cv2.imshow(WIN_World, world)
-  
-finally: 
+
+finally:
     # Make sure to clean up even if an exception occurred
-    
+
     # Close all windows
     cv2.destroyAllWindows()
 
