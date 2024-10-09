@@ -2,7 +2,7 @@ import cv2  # Import the OpenCV library
 import numpy as np
 import argparse
 
-# TODO make this configurable from the command line using parser
+# TODO make this configurable from the command line using parser (DONE)
 # Get user input for the marker ID using parser 
 parser = argparse.ArgumentParser(description='Generate a landmark image with a specified ArUco marker ID.')
 parser.add_argument('markerID', type=int, help='ArUco marker ID (0-249)')

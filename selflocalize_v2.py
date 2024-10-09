@@ -39,10 +39,10 @@ CBLACK = (0, 0, 0)
 
 # Landmarks.
 # The robot knows the position of 2 landmarks. Their coordinates are in the unit centimeters [cm].
-landmarkIDs = [1, 2]
+landmarkIDs = [0, 1]
 landmarks = {
-    1: (0.0, 0.0),  # Coordinates for landmark 1
-    2: (300.0, 0.0)  # Coordinates for landmark 2
+    0: (0.0, 0.0),  # Coordinates for landmark 1
+    1: (300.0, 0.0)  # Coordinates for landmark 2
 }
 landmark_colors = [CRED, CGREEN] # Colors used when drawing the landmarks
 
@@ -150,37 +150,8 @@ def compute_particle_weight(particle, detected_id, measured_dist, measured_angle
 #     return dist_weight * reduced_angle_weight
 
 
-# def SIR_resample_particles(particles):
-#     # Step 1: Normalize the weights
-#     total_weight = sum([p.getWeight() for p in particles])
-#     if total_weight == 0:
-#         # If all weights are zero, set equal weights
-#         for p in particles:
-#             p.setWeight(1.0 / len(particles))
-#         total_weight = 1.0
-#     normalized_weights = [p.getWeight() / total_weight for p in particles]
-#
-#     # Step 2: Generate cumulative distribution of weights
-#     cumulative_sum = np.cumsum(normalized_weights)
-#
-#     # Step 3: Resampling using the cumulative distribution
-#     new_particles = []
-#     for _ in range(len(particles)):
-#         r = np.random.uniform(0, 1)
-#         index = np.searchsorted(cumulative_sum, r)
-#         # Clone the selected particle and give it equal weight
-#         new_particle = particle.Particle(
-#             particles[index].getX(),
-#             particles[index].getY(),
-#             particles[index].getTheta(),
-#             1.0 / len(particles)  # Equal weight after resampling
-#         )
-#         new_particles.append(new_particle)
-#
-#     return new_particles
-
-
-def SIR_resample_particles(particles, jitter_std_x=0.5, jitter_std_y=0.5, jitter_std_theta=0.05):
+def SIR_resample_particles(particles):
+    # Step 1: Normalize the weights
     total_weight = sum([p.getWeight() for p in particles])
     if total_weight == 0:
         # If all weights are zero, set equal weights
@@ -189,17 +160,19 @@ def SIR_resample_particles(particles, jitter_std_x=0.5, jitter_std_y=0.5, jitter
         total_weight = 1.0
     normalized_weights = [p.getWeight() / total_weight for p in particles]
 
+    # Step 2: Generate cumulative distribution of weights
     cumulative_sum = np.cumsum(normalized_weights)
 
+    # Step 3: Resampling using the cumulative distribution
     new_particles = []
     for _ in range(len(particles)):
         r = np.random.uniform(0, 1)
         index = np.searchsorted(cumulative_sum, r)
         # Clone the selected particle and give it equal weight
         new_particle = particle.Particle(
-            particles[index].getX() + np.random.normal(0, jitter_std_x),  # Add jitter to x
-            particles[index].getY() + np.random.normal(0, jitter_std_y),  # Add jitter to y
-            particles[index].getTheta() + np.random.normal(0, jitter_std_theta),  # Add jitter to theta
+            particles[index].getX(),
+            particles[index].getY(),
+            particles[index].getTheta(),
             1.0 / len(particles)  # Equal weight after resampling
         )
         new_particles.append(new_particle)
@@ -310,8 +283,8 @@ try:
                 p.setWeight(total_weight)
 
             # Resample particles
-            # particles = SIR_resample_particles(particles)
-            particles = SIR_resample_particles(particles, jitter_std_x=0.5, jitter_std_y=0.5, jitter_std_theta=0.05)
+            particles = SIR_resample_particles(particles)
+            # particles = SIR_resample_particles(particles, jitter_std_x=0.5, jitter_std_y=0.5, jitter_std_theta=0.05)
         else:
             # No observations; continue with current weights
             pass
