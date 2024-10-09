@@ -39,6 +39,11 @@ CBLACK = (0, 0, 0)
 
 # Landmarks.
 # The robot knows the position of 2 landmarks. Their coordinates are in the unit centimeters [cm].
+# landmarkIDs = [0, 1]
+# landmarks = {
+#     0: (0.0, 0.0),  # Coordinates for landmark 1
+#     1: (300.0, 0.0)  # Coordinates for landmark 2
+# }
 landmarkIDs = [1, 2]
 landmarks = {
     1: (0.0, 0.0),  # Coordinates for landmark 1
@@ -58,7 +63,6 @@ def jet(x):
 def draw_world(est_pose, particles, world):
     """Visualization.
     This functions draws robots position in the world coordinate system."""
-
     # Fix the origin of the coordinate system
     offsetX = 100
     offsetY = 250
@@ -169,7 +173,7 @@ def SIR_resample_particles(particles):
     return new_particles
 
 # Define the standard deviations for distance and angle (you can tweak these)
-sigma_d = 10
+sigma_d = 40
 sigma_theta = np.pi / 6
 
 # Main program #
@@ -233,7 +237,11 @@ try:
         colour = cam.get_next_frame()
 
         # Time step (dt)
-        dt = 0.1  # Adjust this based on your control loop timing
+        dt = 0.1
+        # This could be a large value if we wanted to simulate a faster robot
+        # Or smaller if we wanted to simulate a slower robot
+
+        particle.add_uncertainty(particles, 15, 10)  # Motion noise
 
         # Update each particle's state
         for p in particles:
@@ -247,16 +255,19 @@ try:
             p.setY(p.getY() + delta_y)
             p.setTheta(p.getTheta() + delta_theta)
 
-            # Optionally, add uncertainty to the particle motion
-            p.setX(p.getX() + np.random.normal(0, 0.5))  # Motion noise sigma
-            p.setY(p.getY() + np.random.normal(0, 0.5))
-            p.setTheta(p.getTheta() + np.random.normal(0, 0.05))  # Motion noise theta sigma
+            # p.setX(p.getX() + np.random.normal(0, 5))  # Motion noise sigma
+            # p.setY(p.getY() + np.random.normal(0, 5))
+            # p.setTheta(p.getTheta() + np.random.normal(0, 2.5))  # Motion noise theta sigma
+
+
+            # particle.move_particle(p, delta_x, delta_y, delta_theta)
 
         # Detect objects
         objectIDs, dists, angles = cam.detect_aruco_objects(colour)
 
         # Update particle weights
         if objectIDs is not None:
+            print("Object ID = ", objectIDs, ", Distance = ", dists, ", angle = ", angles)
             for p in particles:
                 log_total_weight = 0.0
                 for i in range(len(objectIDs)):
@@ -267,11 +278,11 @@ try:
                     weight = compute_particle_weight(p, detected_id, measured_dist, measured_angle, landmarks, sigma_d, sigma_theta)
                     log_weight = np.log(weight + 1e-300)  # Avoid log(0)
                     log_total_weight += log_weight
+                    # Use log weights to avoid numerical underflow when multiplying many small probabilities
                 p.setWeight(np.exp(log_total_weight))
 
             # Resample particles
             particles = SIR_resample_particles(particles)
-            # particles = SIR_resample_particles(particles, jitter_std_x=0.5, jitter_std_y=0.5, jitter_std_theta=0.05)
         else:
             # No observations; continue with current weights
             pass
